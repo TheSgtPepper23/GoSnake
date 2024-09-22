@@ -27,6 +27,8 @@ var SPEEDS = [...]int{20, 15, 12, 10, 6, 5, 4, 3, 2, 1}
 var YELLOW = color.CMYK{0, 0, 255, 0}
 var arcadeFaceSource *text.GoTextFaceSource
 
+var availableCells = make([]Coord, 0)
+
 type GameState int
 
 // game states
@@ -92,10 +94,11 @@ type Game struct {
 	updateCounter  int
 	gameOver       bool
 	state          GameState
-	availableCells []Coord
+	availableCells *[]Coord
+	movementBuff   bool
 }
 
-// Draws a screen with text on it. It can have a title and a subtitle, the later beign optional
+// Draws a screen with text on it. It can have a title and a subtitle, the later being optional
 func gameScreen(screen *ebiten.Image, hasSub bool, title, subtitle string) {
 	op := &text.DrawOptions{}
 	op.GeoM.Translate(WIDTH/2, 32)
@@ -122,28 +125,30 @@ func gameScreen(screen *ebiten.Image, hasSub bool, title, subtitle string) {
 
 // places a new food in any of the tiles where the snake its NOT
 func (g *Game) placeFood() {
-	freeCells := make([]Coord, 0)
+	freeCells := make([]*Coord, 0)
 	remaining := len(g.snake.body)
 	found := false
-	for i := 0; i < len(g.availableCells); i++ {
+	for i := 0; i < len(*g.availableCells); i++ {
 		found = false
 		//Can finish early if all the positions of the snake are found. Not all the tiles will be available, but its faster
 		if remaining == 0 {
 			break
 		}
 		for j := 0; j < len(g.snake.body); j++ {
-			if g.snake.body[j].Equals(&g.availableCells[i]) {
+			//crazy pointers
+			if g.snake.body[j].Equals(&(*g.availableCells)[i]) {
 				remaining--
 				found = true
 				break
 			}
 		}
 		if !found {
-			freeCells = append(freeCells, g.availableCells[i])
+			//crazy pointers
+			freeCells = append(freeCells, &(*g.availableCells)[i])
 		}
 	}
 
-	g.food = freeCells[rand.IntN(len(freeCells))]
+	g.food = *freeCells[rand.IntN(len(freeCells))]
 }
 
 func (g *Game) Update() error {
@@ -183,6 +188,7 @@ func (g *Game) Update() error {
 				}
 				g.placeFood()
 			}
+			g.movementBuff = false
 		}
 	}
 	return nil
@@ -226,41 +232,40 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeigh
 
 // Resets the game state
 func (g *Game) initialize() {
-	availableCells := make([]Coord, 0)
-	for i := 0; i < MAXX; i++ {
-		for j := 0; j < MAXY; j++ {
-			availableCells = append(availableCells, Coord{xPos: float32(i * SNAKE_SIZE), yPos: float32(j * SNAKE_SIZE)})
-		}
-	}
 	g.snake = newSnake(3)
 	g.currentSpeed = 0
 	g.snake.speedX = 0
 	g.snake.speedY = SNAKE_SIZE
 	g.updateCounter = 0
 	g.gameOver = false
-	g.availableCells = availableCells
+	g.availableCells = &availableCells
+	g.movementBuff = false
 	g.placeFood()
 }
 
 func (g *Game) handleInput() {
-	if inpututil.IsKeyJustPressed(ebiten.KeyArrowUp) && g.snake.speedX != 0 {
+	if inpututil.IsKeyJustPressed(ebiten.KeyArrowUp) && g.snake.speedX != 0 && !g.movementBuff {
 		g.snake.speedX = 0
 		g.snake.speedY = -SNAKE_SIZE
+		g.movementBuff = true
 	}
 
-	if inpututil.IsKeyJustPressed(ebiten.KeyArrowDown) && g.snake.speedX != 0 {
+	if inpututil.IsKeyJustPressed(ebiten.KeyArrowDown) && g.snake.speedX != 0 && !g.movementBuff {
 		g.snake.speedX = 0
 		g.snake.speedY = SNAKE_SIZE
+		g.movementBuff = true
 	}
 
-	if inpututil.IsKeyJustPressed(ebiten.KeyArrowLeft) && g.snake.speedY != 0 {
+	if inpututil.IsKeyJustPressed(ebiten.KeyArrowLeft) && g.snake.speedY != 0 && !g.movementBuff {
 		g.snake.speedY = 0
 		g.snake.speedX = -SNAKE_SIZE
+		g.movementBuff = true
 	}
 
-	if inpututil.IsKeyJustPressed(ebiten.KeyArrowRight) && g.snake.speedY != 0 {
+	if inpututil.IsKeyJustPressed(ebiten.KeyArrowRight) && g.snake.speedY != 0 && !g.movementBuff {
 		g.snake.speedY = 0
 		g.snake.speedX = SNAKE_SIZE
+		g.movementBuff = true
 	}
 
 	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
@@ -269,7 +274,7 @@ func (g *Game) handleInput() {
 			g.state = PAUSE
 		case OVER:
 			g.initialize()
-			g.state = GAME
+			fallthrough
 		case NEW:
 			fallthrough
 		case PAUSE:
@@ -281,7 +286,13 @@ func (g *Game) handleInput() {
 func main() {
 	ebiten.SetWindowSize(960, 720)
 	ebiten.SetWindowTitle("Snake")
-
+	//Populate the board
+	for i := 0; i < MAXX; i++ {
+		for j := 0; j < MAXY; j++ {
+			availableCells = append(availableCells, Coord{xPos: float32(i * SNAKE_SIZE), yPos: float32(j * SNAKE_SIZE)})
+		}
+	}
+	//Load the font
 	s, err := text.NewGoTextFaceSource(bytes.NewReader(fonts.PressStart2P_ttf))
 	if err != nil {
 		log.Fatal(err)
