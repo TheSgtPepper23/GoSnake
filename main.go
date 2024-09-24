@@ -15,11 +15,12 @@ import (
 )
 
 const (
-	SNAKE_SIZE = 10
-	WIDTH      = 320
-	HEIGHT     = 240
-	MAXX       = (WIDTH / SNAKE_SIZE)
-	MAXY       = (HEIGHT / SNAKE_SIZE)
+	SNAKE_SIZE  = 10
+	WIDTH       = 320
+	HEIGHT      = 260
+	GAME_OFFSET = 10
+	MAXX        = (WIDTH / SNAKE_SIZE)
+	MAXY        = (HEIGHT / SNAKE_SIZE)
 )
 
 // every x frames the game will be updated
@@ -123,6 +124,28 @@ func gameScreen(screen *ebiten.Image, hasSub bool, title, subtitle string) {
 	}
 }
 
+func statusBar(screen *ebiten.Image, score, speed string) {
+	op := &text.DrawOptions{}
+	op.GeoM.Translate(0, 0)
+	op.ColorScale.ScaleWithColor(color.White)
+	op.LineSpacing = 10
+	op.PrimaryAlign = text.AlignStart
+	text.Draw(screen, score, &text.GoTextFace{
+		Source: arcadeFaceSource,
+		Size:   10,
+	}, op)
+
+	op = &text.DrawOptions{}
+	op.GeoM.Translate(WIDTH, 0)
+	op.ColorScale.ScaleWithColor(color.White)
+	op.LineSpacing = 10
+	op.PrimaryAlign = text.AlignEnd
+	text.Draw(screen, speed, &text.GoTextFace{
+		Source: arcadeFaceSource,
+		Size:   10,
+	}, op)
+}
+
 // places a new food in any of the tiles where the snake its NOT
 func (g *Game) placeFood() {
 	freeCells := make([]*Coord, 0)
@@ -176,7 +199,7 @@ func (g *Game) Update() error {
 			}
 
 			//hits a wall
-			if g.snake.body[0].xPos < 0 || g.snake.body[0].xPos > WIDTH-SNAKE_SIZE || g.snake.body[0].yPos < 0 || g.snake.body[0].yPos > HEIGHT-SNAKE_SIZE {
+			if g.snake.body[0].xPos < 0 || g.snake.body[0].xPos > WIDTH-SNAKE_SIZE || g.snake.body[0].yPos < GAME_OFFSET || g.snake.body[0].yPos > HEIGHT-SNAKE_SIZE {
 				g.state = OVER
 			}
 
@@ -204,12 +227,13 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		for i := 0; i < len(g.snake.body); i++ {
 			vector.DrawFilledRect(screen, g.snake.body[i].xPos, g.snake.body[i].yPos, SNAKE_SIZE, SNAKE_SIZE, color.RGBA{255, 255, 255, 255}, true)
 		}
+
 		//draws the grid over the other two elements
-		for j := 0; j < screen.Bounds().Dx()/SNAKE_SIZE; j++ {
-			for x := 0; x < screen.Bounds().Dy()/SNAKE_SIZE; x++ {
-				vector.StrokeRect(screen, float32(j*SNAKE_SIZE), float32(x*SNAKE_SIZE), SNAKE_SIZE, SNAKE_SIZE, 1, color.RGBA{0, 102, 204, 255}, false)
-			}
+		for j := 0; j < len(*g.availableCells); j++ {
+			vector.StrokeRect(screen, (*g.availableCells)[j].xPos, (*g.availableCells)[j].yPos, SNAKE_SIZE, SNAKE_SIZE, 1, color.RGBA{0, 102, 204, 255}, false)
 		}
+
+		statusBar(screen, fmt.Sprintf("SCORE: %d", len(g.snake.body)), fmt.Sprintf("SPEED: %d", g.currentSpeed+1))
 	}
 
 	//they are down here so theyre drawn over the game
@@ -284,11 +308,11 @@ func (g *Game) handleInput() {
 }
 
 func main() {
-	ebiten.SetWindowSize(960, 720)
-	ebiten.SetWindowTitle("Snake")
+	ebiten.SetWindowSize(960, 780)
+	ebiten.SetWindowTitle("SNAKE")
 	//Populate the board
 	for i := 0; i < MAXX; i++ {
-		for j := 0; j < MAXY; j++ {
+		for j := (GAME_OFFSET / 10); j < MAXY; j++ {
 			availableCells = append(availableCells, Coord{xPos: float32(i * SNAKE_SIZE), yPos: float32(j * SNAKE_SIZE)})
 		}
 	}
