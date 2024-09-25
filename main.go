@@ -25,14 +25,13 @@ const (
 
 // every x frames the game will be updated
 var SPEEDS = [...]int{20, 15, 12, 10, 6, 5, 4, 3, 2, 1}
-var YELLOW = color.CMYK{0, 0, 255, 0}
+var YELLOW = color.RGBA{238, 175, 97, 255}
 var arcadeFaceSource *text.GoTextFaceSource
 
-var availableCells = make([]Coord, 0)
+var availableCells = make([]Vec, 0)
 
 type GameState int
 
-// game states
 const (
 	NEW GameState = iota
 	OVER
@@ -40,20 +39,31 @@ const (
 	PAUSE
 )
 
-// Coord just has a position, this is the base for all the game elements
-type Coord struct {
+type DIR int
+
+const (
+	UP DIR = iota
+	DOWN
+	LEFT
+	RIGHT
+)
+
+// Vec just has a position, this is the base for all the game elements
+// dir indicates the direction, true is vertical and false is horizontal
+type Vec struct {
 	xPos float32
 	yPos float32
+	dir  DIR
 }
 
 // easy way to compare two coords
-func (c *Coord) Equals(c2 *Coord) bool {
+func (c *Vec) Equals(c2 *Vec) bool {
 	return c.xPos == c2.xPos && c.yPos == c2.yPos
 }
 
 // the snake has an array of coords as a body and a vertical and horizontal speed, those are in the snake to be able to access them inside feedSnake
 type Snake struct {
-	body   []Coord
+	body   []Vec
 	speedY float32
 	speedX float32
 }
@@ -61,17 +71,19 @@ type Snake struct {
 // Creates a new snake of the indicated size. The snake its created vertically with the head in the middle and the rest
 // of the body following upwards
 func newSnake(size int) Snake {
-	tempBody := []Coord{
+	tempBody := []Vec{
 		{
 			xPos: (WIDTH / 2) - SNAKE_SIZE,
 			yPos: (HEIGHT / 2) - SNAKE_SIZE,
+			dir:  DOWN,
 		},
 	}
 
 	for i := 0; i < size-1; i++ {
-		tempBody = append(tempBody, Coord{
+		tempBody = append(tempBody, Vec{
 			xPos: (WIDTH / 2) - SNAKE_SIZE,
 			yPos: float32((HEIGHT / 2) - (SNAKE_SIZE * (i + 2))),
+			dir:  DOWN,
 		})
 	}
 	return Snake{
@@ -82,20 +94,29 @@ func newSnake(size int) Snake {
 // increases the size of the snake adding a new coord at the end.
 // change it so when the new coord is added it doesnt apear sideways
 func (s *Snake) feedSnake() {
-	s.body = append(s.body, Coord{
-		xPos: s.body[len(s.body)-1].xPos + s.speedX,
-		yPos: s.body[len(s.body)-1].yPos + s.speedY,
+	var xPos, yPos float32
+	if s.body[len(s.body)-1].dir == DOWN || s.body[len(s.body)-1].dir == UP {
+		xPos = s.body[len(s.body)-1].xPos
+		yPos = s.body[len(s.body)-1].yPos + SNAKE_SIZE
+	} else {
+		yPos = s.body[len(s.body)-1].yPos
+		xPos = s.body[len(s.body)-1].xPos + SNAKE_SIZE
+	}
+	s.body = append(s.body, Vec{
+		xPos: xPos,
+		yPos: yPos,
+		dir:  s.body[len(s.body)-1].dir,
 	})
 }
 
 type Game struct {
 	snake          Snake
 	currentSpeed   int
-	food           Coord
+	food           Vec
 	updateCounter  int
 	gameOver       bool
 	state          GameState
-	availableCells *[]Coord
+	availableCells *[]Vec
 	movementBuff   bool
 }
 
@@ -127,7 +148,7 @@ func gameScreen(screen *ebiten.Image, hasSub bool, title, subtitle string) {
 func statusBar(screen *ebiten.Image, score, speed string) {
 	op := &text.DrawOptions{}
 	op.GeoM.Translate(0, 0)
-	op.ColorScale.ScaleWithColor(color.White)
+	op.ColorScale.ScaleWithColor(YELLOW)
 	op.LineSpacing = 10
 	op.PrimaryAlign = text.AlignStart
 	text.Draw(screen, score, &text.GoTextFace{
@@ -137,7 +158,7 @@ func statusBar(screen *ebiten.Image, score, speed string) {
 
 	op = &text.DrawOptions{}
 	op.GeoM.Translate(WIDTH, 0)
-	op.ColorScale.ScaleWithColor(color.White)
+	op.ColorScale.ScaleWithColor(YELLOW)
 	op.LineSpacing = 10
 	op.PrimaryAlign = text.AlignEnd
 	text.Draw(screen, speed, &text.GoTextFace{
@@ -148,7 +169,7 @@ func statusBar(screen *ebiten.Image, score, speed string) {
 
 // places a new food in any of the tiles where the snake its NOT
 func (g *Game) placeFood() {
-	freeCells := make([]*Coord, 0)
+	freeCells := make([]*Vec, 0)
 	remaining := len(g.snake.body)
 	found := false
 	for i := 0; i < len(*g.availableCells); i++ {
@@ -186,9 +207,19 @@ func (g *Game) Update() error {
 			for i := len(g.snake.body) - 1; i > 0; i-- {
 				g.snake.body[i].xPos = g.snake.body[i-1].xPos
 				g.snake.body[i].yPos = g.snake.body[i-1].yPos
+				g.snake.body[i].dir = g.snake.body[i-1].dir
 			}
 			g.snake.body[0].yPos += g.snake.speedY
 			g.snake.body[0].xPos += g.snake.speedX
+			if g.snake.speedX == -10 {
+				g.snake.body[0].dir = LEFT
+			} else if g.snake.speedX == 10 {
+				g.snake.body[0].dir = RIGHT
+			} else if g.snake.speedY == -10 {
+				g.snake.body[0].dir = UP
+			} else {
+				g.snake.body[0].dir = DOWN
+			}
 
 			//Bites its body
 			for j := 1; j < len(g.snake.body); j++ {
@@ -218,14 +249,26 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-
+	screen.Fill(color.RGBA{106, 13, 131, 255})
 	//displays the snake, food and grid. Also in pause so the player can look at the game state under the pause letters
 	if g.state == GAME || g.state == PAUSE {
 		//Draws the food
-		vector.DrawFilledRect(screen, g.food.xPos, g.food.yPos, SNAKE_SIZE, SNAKE_SIZE, color.RGBA{255, 0, 0, 255}, false)
+		vector.DrawFilledRect(screen, g.food.xPos, g.food.yPos, SNAKE_SIZE, SNAKE_SIZE, color.RGBA{251, 144, 98, 255}, false)
 		//Draws the snake body
+		var dirColor color.RGBA
 		for i := 0; i < len(g.snake.body); i++ {
-			vector.DrawFilledRect(screen, g.snake.body[i].xPos, g.snake.body[i].yPos, SNAKE_SIZE, SNAKE_SIZE, color.RGBA{255, 255, 255, 255}, true)
+			switch g.snake.body[i].dir {
+			case UP:
+				dirColor = color.RGBA{255, 0, 0, 255}
+			case DOWN:
+				dirColor = color.RGBA{0, 255, 0, 255}
+			case LEFT:
+				dirColor = color.RGBA{0, 0, 255, 255}
+			case RIGHT:
+				dirColor = color.RGBA{255, 255, 255, 255}
+			}
+
+			vector.DrawFilledRect(screen, g.snake.body[i].xPos, g.snake.body[i].yPos, SNAKE_SIZE, SNAKE_SIZE, dirColor, true)
 		}
 
 		//draws the grid over the other two elements
@@ -281,14 +324,14 @@ func (g *Game) handleInput() {
 	}
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyArrowLeft) && g.snake.speedY != 0 && !g.movementBuff {
-		g.snake.speedY = 0
 		g.snake.speedX = -SNAKE_SIZE
+		g.snake.speedY = 0
 		g.movementBuff = true
 	}
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyArrowRight) && g.snake.speedY != 0 && !g.movementBuff {
-		g.snake.speedY = 0
 		g.snake.speedX = SNAKE_SIZE
+		g.snake.speedY = 0
 		g.movementBuff = true
 	}
 
@@ -307,13 +350,14 @@ func (g *Game) handleInput() {
 	}
 }
 
+// Disminuir la velocidad máxima
 func main() {
 	ebiten.SetWindowSize(960, 780)
 	ebiten.SetWindowTitle("SNAKE")
 	//Populate the board
 	for i := 0; i < MAXX; i++ {
 		for j := (GAME_OFFSET / 10); j < MAXY; j++ {
-			availableCells = append(availableCells, Coord{xPos: float32(i * SNAKE_SIZE), yPos: float32(j * SNAKE_SIZE)})
+			availableCells = append(availableCells, Vec{xPos: float32(i * SNAKE_SIZE), yPos: float32(j * SNAKE_SIZE)})
 		}
 	}
 	//Load the font
