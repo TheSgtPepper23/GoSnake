@@ -2,7 +2,10 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"log"
+	"os"
+	"strings"
 
 	"github.com/TheSgtPepper23/goSnake/files"
 	"github.com/TheSgtPepper23/goSnake/game"
@@ -13,7 +16,7 @@ import (
 
 // every x frames the game will be updated
 var arcadeFaceSource *text.GoTextFaceSource
-var normalImage *ebiten.Image
+var availableImages map[string]*ebiten.Image
 
 func init() {
 	//Load the font
@@ -23,12 +26,23 @@ func init() {
 	}
 	arcadeFaceSource = s
 
-	//Load the images
-	normalImg, err := files.LoadImgFromFile("./assets/normal.png")
+	availableImages = make(map[string]*ebiten.Image)
+
+	savedFiles, err := os.ReadDir("./assets")
 	if err != nil {
-		log.Fatal("Error converting image")
+		log.Fatal(err)
 	}
-	normalImage = ebiten.NewImageFromImage(normalImg)
+
+	//Load the images
+	for i := 0; i < len(savedFiles); i++ {
+		if strings.HasSuffix(savedFiles[i].Name(), ".png") {
+			tempImg, err := files.LoadImgFromFile(fmt.Sprintf("./assets/%s", savedFiles[i].Name()))
+			if err != nil {
+				log.Fatal(err)
+			}
+			availableImages[strings.Split(savedFiles[i].Name(), ".")[0]] = ebiten.NewImageFromImage(tempImg)
+		}
+	}
 }
 
 // Disminuir la velocidad máxima
@@ -37,7 +51,7 @@ func main() {
 	ebiten.SetWindowTitle("SNAKE")
 
 	game := &game.Game{}
-	game.Initialize(arcadeFaceSource)
+	game.Initialize(arcadeFaceSource, &availableImages)
 	if err := ebiten.RunGame(game); err != nil {
 		panic(err)
 	}
