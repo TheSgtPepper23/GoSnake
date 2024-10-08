@@ -32,9 +32,9 @@ const (
 )
 
 type Game struct {
-	availableCells  *[]Vec
+	availableCells  []Vec
 	uiDrawer        *UIElement
-	availableImages *map[string]*ebiten.Image
+	availableImages map[string]*ebiten.Image
 	snake           Snake
 	food            Vec
 	currentSpeed    int
@@ -45,7 +45,7 @@ type Game struct {
 }
 
 // Resets the game state
-func (g *Game) Initialize(font *text.GoTextFaceSource, availableImages *map[string]*ebiten.Image) {
+func (g *Game) Initialize(font *text.GoTextFaceSource, availableImages map[string]*ebiten.Image) {
 	availableCells := make([]Vec, 0)
 	for i := 0; i < MAXX; i++ {
 		for j := (OFFSET / 10); j < MAXY; j++ {
@@ -63,7 +63,7 @@ func (g *Game) Initialize(font *text.GoTextFaceSource, availableImages *map[stri
 	g.snake.SpeedY = float32(SNAKE_SIZE)
 	g.updateCounter = 0
 	g.gameOver = false
-	g.availableCells = &availableCells
+	g.availableCells = availableCells
 	g.movementBuff = false
 	g.placeFood()
 	g.uiDrawer = &drawer
@@ -81,12 +81,14 @@ func (g *Game) reset() {
 	g.placeFood()
 }
 
+// TODO: creo que puede cambiarse para que solo se recorra una vez el cuerpo de la serpiente.
+// Se debe de crear una copia de availbableCells y luego solo remover cada una de las celdas del cuerpo de la serpiente
 // places a new food in any of the tiles where the snake its NOT
 func (g *Game) placeFood() {
 	freeCells := make([]*Vec, 0)
 	remaining := len(g.snake.Body)
 	found := false
-	for i := 0; i < len(*g.availableCells); i++ {
+	for i := 0; i < len(g.availableCells); i++ {
 		found = false
 		// Can finish early if all the positions of the snake are found. Not all the tiles will be available, but its faster
 		if remaining == 0 {
@@ -94,7 +96,7 @@ func (g *Game) placeFood() {
 		}
 		for j := 0; j < len(g.snake.Body); j++ {
 			// crazy pointers
-			if g.snake.Body[j].Equals(&(*g.availableCells)[i]) {
+			if g.snake.Body[j].Equals(&(g.availableCells)[i]) {
 				remaining--
 				found = true
 				break
@@ -102,7 +104,7 @@ func (g *Game) placeFood() {
 		}
 		if !found {
 			// crazy pointers
-			freeCells = append(freeCells, &(*g.availableCells)[i])
+			freeCells = append(freeCells, &(g.availableCells)[i])
 		}
 	}
 
@@ -168,34 +170,69 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// displays the snake, food and grid. Also in pause so the player can look at the game state under the pause letters
 	if g.state == GAME || g.state == PAUSE {
 		// Draws the food
-		vector.DrawFilledRect(screen, g.food.XPos, g.food.YPos, float32(SNAKE_SIZE), float32(SNAKE_SIZE), color.RGBA{251, 144, 98, 255}, false)
+		vector.DrawFilledRect(
+			screen,
+			g.food.XPos,
+			g.food.YPos,
+			float32(SNAKE_SIZE),
+			float32(SNAKE_SIZE),
+			color.RGBA{251, 144, 98, 255},
+			false,
+		)
 		// Draws the snake body
 		var dirColor color.Color = color.White
 		for i := 0; i < len(g.snake.Body); i++ {
+			// Keep this logic in case the images are added later. The direction of the snake will determine the image that will be displayed
 			switch g.snake.Body[i].Dir {
 			case UP:
-				// dirColor = color.RGBA{255, 0, 0, 255}
-				vector.DrawFilledRect(screen, g.snake.Body[i].XPos, g.snake.Body[i].YPos, float32(SNAKE_SIZE), float32(SNAKE_SIZE), dirColor, true)
-				// drawImage(screen, (*g.availableImages)["normal"], float64(g.snake.Body[i].XPos), float64(g.snake.Body[i].YPos), 0)
+				vector.DrawFilledRect(
+					screen,
+					g.snake.Body[i].XPos,
+					g.snake.Body[i].YPos,
+					float32(SNAKE_SIZE),
+					float32(SNAKE_SIZE),
+					dirColor, true,
+				)
 			case DOWN:
-				// dirColor = color.RGBA{0, 255, 0, 255}
-				vector.DrawFilledRect(screen, g.snake.Body[i].XPos, g.snake.Body[i].YPos, float32(SNAKE_SIZE), float32(SNAKE_SIZE), dirColor, true)
-				// drawImage(screen, (*g.availableImages)["normal"], float64(g.snake.Body[i].XPos), float64(g.snake.Body[i].YPos), 0)
+				vector.DrawFilledRect(
+					screen,
+					g.snake.Body[i].XPos,
+					g.snake.Body[i].YPos,
+					float32(SNAKE_SIZE),
+					float32(SNAKE_SIZE),
+					dirColor, true,
+				)
 			case LEFT:
-				// dirColor = color.RGBA{0, 0, 255, 255}
-				vector.DrawFilledRect(screen, g.snake.Body[i].XPos, g.snake.Body[i].YPos, float32(SNAKE_SIZE), float32(SNAKE_SIZE), dirColor, true)
-				// drawImage(screen, (*g.availableImages)["normal"], float64(g.snake.Body[i].XPos), float64(g.snake.Body[i].YPos), math.Pi/2)
-
+				vector.DrawFilledRect(
+					screen,
+					g.snake.Body[i].XPos,
+					g.snake.Body[i].YPos,
+					float32(SNAKE_SIZE),
+					float32(SNAKE_SIZE),
+					dirColor, true,
+				)
 			case RIGHT:
-				// dirColor = color.RGBA{255, 255, 255, 255}
-				vector.DrawFilledRect(screen, g.snake.Body[i].XPos, g.snake.Body[i].YPos, float32(SNAKE_SIZE), float32(SNAKE_SIZE), dirColor, true)
-				// drawImage(screen, (*g.availableImages)["normal"], float64(g.snake.Body[i].XPos), float64(g.snake.Body[i].YPos), math.Pi/2)
+				vector.DrawFilledRect(
+					screen,
+					g.snake.Body[i].XPos,
+					g.snake.Body[i].YPos,
+					float32(SNAKE_SIZE),
+					float32(SNAKE_SIZE),
+					dirColor, true,
+				)
 			}
 		}
 
 		// //draws the grid over the other two elements
-		for j := 0; j < len(*g.availableCells); j++ {
-			vector.StrokeRect(screen, (*g.availableCells)[j].XPos, (*g.availableCells)[j].YPos, float32(SNAKE_SIZE), float32(SNAKE_SIZE), 1, color.RGBA{0, 102, 204, 255}, false)
+		for j := 0; j < len(g.availableCells); j++ {
+			vector.StrokeRect(screen,
+				(g.availableCells)[j].XPos,
+				(g.availableCells)[j].YPos,
+				float32(SNAKE_SIZE),
+				float32(SNAKE_SIZE),
+				1,
+				color.RGBA{0, 102, 204, 255},
+				false)
 		}
 
 		g.uiDrawer.StatusBar(screen, fmt.Sprintf("SCORE: %d", len(g.snake.Body)), fmt.Sprintf("SPEED: %d", g.currentSpeed+1))
