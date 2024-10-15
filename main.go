@@ -41,9 +41,12 @@ func main() {
 	ebiten.SetWindowSize(960, 780)
 	ebiten.SetWindowTitle("SNAKE")
 
-	game := &game.Game{}
-	game.Initialize(defFont, availableImages)
-	if err := ebiten.RunGame(game); err != nil {
+	g := &game.Game{}
+	g.Initialize(defFont, availableImages)
+	// table := g.GetAvailbleCells()
+	// index := game.DetermineIndex((*table)[0])
+	// fmt.Println(index)
+	if err := ebiten.RunGame(g); err != nil {
 		panic(err)
 	}
 }

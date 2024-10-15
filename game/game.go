@@ -44,15 +44,24 @@ type Game struct {
 	movementBuff    bool
 }
 
+// TODO: remove this function
+func (g Game) GetAvailbleCells() *[]Vec {
+	return &g.availableCells
+}
+
 // Resets the game state
 func (g *Game) Initialize(font *text.GoTextFaceSource, availableImages map[string]*ebiten.Image) {
 	availableCells := make([]Vec, 0)
 	for i := 0; i < MAXX; i++ {
 		for j := (OFFSET / 10); j < MAXY; j++ {
-			availableCells = append(availableCells, Vec{XPos: float32(i * SNAKE_SIZE), YPos: float32(j * SNAKE_SIZE)})
+			availableCells = append(availableCells, Vec{
+				XPos: float32(i * SNAKE_SIZE),
+				YPos: float32(j * SNAKE_SIZE),
+			})
 		}
 	}
 
+	g.availableCells = availableCells
 	drawer := UIElement{
 		Font:           font,
 		AvailableWidth: WIDTH,
@@ -63,7 +72,6 @@ func (g *Game) Initialize(font *text.GoTextFaceSource, availableImages map[strin
 	g.snake.SpeedY = float32(SNAKE_SIZE)
 	g.updateCounter = 0
 	g.gameOver = false
-	g.availableCells = availableCells
 	g.movementBuff = false
 	g.placeFood()
 	g.uiDrawer = &drawer
@@ -81,34 +89,15 @@ func (g *Game) reset() {
 	g.placeFood()
 }
 
-// TODO: creo que puede cambiarse para que solo se recorra una vez el cuerpo de la serpiente.
-// Se debe de crear una copia de availbableCells y luego solo remover cada una de las celdas del cuerpo de la serpiente
-// places a new food in any of the tiles where the snake its NOT
 func (g *Game) placeFood() {
-	freeCells := make([]*Vec, 0)
-	remaining := len(g.snake.Body)
-	found := false
-	for i := 0; i < len(g.availableCells); i++ {
-		found = false
-		// Can finish early if all the positions of the snake are found. Not all the tiles will be available, but its faster
-		if remaining == 0 {
-			break
-		}
-		for j := 0; j < len(g.snake.Body); j++ {
-			// crazy pointers
-			if g.snake.Body[j].Equals(&(g.availableCells)[i]) {
-				remaining--
-				found = true
-				break
-			}
-		}
-		if !found {
-			// crazy pointers
-			freeCells = append(freeCells, &(g.availableCells)[i])
-		}
+	freeCells := make([]Vec, len(g.availableCells))
+	copy(freeCells, g.availableCells)
+	for _, node := range g.snake.Body {
+		ind := DetermineIndex(node)
+		freeCells[ind] = freeCells[len(freeCells)-1]
+		freeCells = freeCells[:len(freeCells)-1]
 	}
-
-	g.food = *freeCells[rand.IntN(len(freeCells))]
+	g.food = freeCells[rand.IntN(len(freeCells))]
 }
 
 func (g *Game) Update() error {
@@ -116,7 +105,6 @@ func (g *Game) Update() error {
 	switch g.state {
 	case GAME:
 		g.updateCounter++
-
 		// updates every x frames to control snake speed
 		if g.updateCounter == SPEEDS[g.currentSpeed] {
 			g.updateCounter = 0
@@ -179,7 +167,7 @@ func drawSnakeNode(node, prev, next Vec, screen *ebiten.Image) {
 	if node.YPos-SNAKE_SIZE != next.YPos && node.YPos-SNAKE_SIZE != prev.YPos {
 		// Draw top line
 		vector.StrokeLine(screen,
-			node.XPos-1,
+			node.XPos,
 			node.YPos,
 			node.XPos+SNAKE_SIZE,
 			node.YPos,
@@ -210,7 +198,7 @@ func drawSnakeNode(node, prev, next Vec, screen *ebiten.Image) {
 			node.XPos,
 			node.YPos+SNAKE_SIZE,
 			1,
-			color.RGBA{0, 0, 0, 255},
+			color.RGBA{255, 0, 0, 255},
 			false,
 		)
 	}
@@ -219,11 +207,11 @@ func drawSnakeNode(node, prev, next Vec, screen *ebiten.Image) {
 		// Draw right line
 		vector.StrokeLine(screen,
 			node.XPos+SNAKE_SIZE,
-			node.YPos-1,
+			node.YPos,
 			node.XPos+SNAKE_SIZE,
 			node.YPos+SNAKE_SIZE,
 			1,
-			color.RGBA{0, 0, 0, 255},
+			color.RGBA{0, 0, 255, 255},
 			false,
 		)
 	}
@@ -250,33 +238,12 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			if i != 0 {
 				prev = g.snake.Body[i-1]
 			}
-			if i != len(g.snake.Body)-1 {
+			if i < len(g.snake.Body)-1 {
 				next = g.snake.Body[i+1]
 			}
-			// Keep this logic in case the images are added later. The direction of the snake will determine the image that will be displayed
-			switch g.snake.Body[i].Dir {
-			case UP:
-				drawSnakeNode(g.snake.Body[i], prev, next, screen)
-			case DOWN:
-				drawSnakeNode(g.snake.Body[i], prev, next, screen)
-			case LEFT:
-				drawSnakeNode(g.snake.Body[i], prev, next, screen)
-			case RIGHT:
-				drawSnakeNode(g.snake.Body[i], prev, next, screen)
-			}
+			fmt.Println(prev)
+			drawSnakeNode(g.snake.Body[i], prev, next, screen)
 		}
-
-		// //draws the grid over the other two elements
-		// for j := 0; j < len(g.availableCells); j++ {
-		// 	vector.StrokeRect(screen,
-		// 		(g.availableCells)[j].XPos,
-		// 		(g.availableCells)[j].YPos,
-		// 		float32(SNAKE_SIZE),
-		// 		float32(SNAKE_SIZE),
-		// 		1,
-		// 		color.RGBA{0, 102, 204, 255},
-		// 		false)
-		// }
 
 		g.uiDrawer.StatusBar(screen, fmt.Sprintf("SCORE: %d", len(g.snake.Body)), fmt.Sprintf("SPEED: %d", g.currentSpeed+1))
 	}
@@ -341,4 +308,11 @@ func (g *Game) handleInput() {
 			g.state = GAME
 		}
 	}
+}
+
+func DetermineIndex(target Vec) int {
+	target.YPos -= OFFSET
+	target.YPos /= SNAKE_SIZE
+	target.XPos /= SNAKE_SIZE
+	return (int(target.XPos) * (MAXY - 1)) + int(target.YPos)
 }
