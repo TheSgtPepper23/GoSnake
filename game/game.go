@@ -20,7 +20,7 @@ const (
 	MAXY       = (HEIGHT / SNAKE_SIZE)
 )
 
-var SPEEDS = [...]int{20, 15, 12, 10, 6, 5, 4, 3, 2, 1}
+var SPEEDS = [...]int{30, 20, 15, 12, 10, 6, 5, 4, 3, 2, 1}
 
 type GameState int
 
@@ -165,6 +165,70 @@ func drawImage(target *ebiten.Image, toPrint *ebiten.Image, xPos, yPos, angle fl
 	target.DrawImage(toPrint, op)
 }
 
+// TODO: arreglar el margen de los strokes, se debe de considerar el ancho
+// de la línea.
+func drawSnakeNode(node, prev, next Vec, screen *ebiten.Image) {
+	vector.DrawFilledRect(
+		screen, node.XPos,
+		node.YPos, float32(SNAKE_SIZE),
+		float32(SNAKE_SIZE),
+		color.White,
+		false,
+	)
+
+	if node.YPos-SNAKE_SIZE != next.YPos && node.YPos-SNAKE_SIZE != prev.YPos {
+		// Draw top line
+		vector.StrokeLine(screen,
+			node.XPos-1,
+			node.YPos,
+			node.XPos+SNAKE_SIZE,
+			node.YPos,
+			1,
+			color.RGBA{0, 0, 0, 255},
+			false,
+		)
+	}
+
+	if node.YPos+SNAKE_SIZE != next.YPos && node.YPos+SNAKE_SIZE != prev.YPos {
+		// Draw bottom line
+		vector.StrokeLine(screen,
+			node.XPos,
+			node.YPos+SNAKE_SIZE,
+			node.XPos+SNAKE_SIZE,
+			node.YPos+SNAKE_SIZE,
+			1,
+			color.RGBA{0, 0, 0, 255},
+			false,
+		)
+	}
+
+	if node.XPos-SNAKE_SIZE != next.XPos && node.XPos-SNAKE_SIZE != prev.XPos {
+		// Draw left line
+		vector.StrokeLine(screen,
+			node.XPos,
+			node.YPos,
+			node.XPos,
+			node.YPos+SNAKE_SIZE,
+			1,
+			color.RGBA{0, 0, 0, 255},
+			false,
+		)
+	}
+
+	if node.XPos+SNAKE_SIZE != next.XPos && node.XPos+SNAKE_SIZE != prev.XPos {
+		// Draw right line
+		vector.StrokeLine(screen,
+			node.XPos+SNAKE_SIZE,
+			node.YPos-1,
+			node.XPos+SNAKE_SIZE,
+			node.YPos+SNAKE_SIZE,
+			1,
+			color.RGBA{0, 0, 0, 255},
+			false,
+		)
+	}
+}
+
 func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Fill(color.RGBA{106, 13, 131, 255})
 	// displays the snake, food and grid. Also in pause so the player can look at the game state under the pause letters
@@ -180,60 +244,39 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			false,
 		)
 		// Draws the snake body
-		var dirColor color.Color = color.White
 		for i := 0; i < len(g.snake.Body); i++ {
+			var prev Vec
+			var next Vec
+			if i != 0 {
+				prev = g.snake.Body[i-1]
+			}
+			if i != len(g.snake.Body)-1 {
+				next = g.snake.Body[i+1]
+			}
 			// Keep this logic in case the images are added later. The direction of the snake will determine the image that will be displayed
 			switch g.snake.Body[i].Dir {
 			case UP:
-				vector.DrawFilledRect(
-					screen,
-					g.snake.Body[i].XPos,
-					g.snake.Body[i].YPos,
-					float32(SNAKE_SIZE),
-					float32(SNAKE_SIZE),
-					dirColor, true,
-				)
+				drawSnakeNode(g.snake.Body[i], prev, next, screen)
 			case DOWN:
-				vector.DrawFilledRect(
-					screen,
-					g.snake.Body[i].XPos,
-					g.snake.Body[i].YPos,
-					float32(SNAKE_SIZE),
-					float32(SNAKE_SIZE),
-					dirColor, true,
-				)
+				drawSnakeNode(g.snake.Body[i], prev, next, screen)
 			case LEFT:
-				vector.DrawFilledRect(
-					screen,
-					g.snake.Body[i].XPos,
-					g.snake.Body[i].YPos,
-					float32(SNAKE_SIZE),
-					float32(SNAKE_SIZE),
-					dirColor, true,
-				)
+				drawSnakeNode(g.snake.Body[i], prev, next, screen)
 			case RIGHT:
-				vector.DrawFilledRect(
-					screen,
-					g.snake.Body[i].XPos,
-					g.snake.Body[i].YPos,
-					float32(SNAKE_SIZE),
-					float32(SNAKE_SIZE),
-					dirColor, true,
-				)
+				drawSnakeNode(g.snake.Body[i], prev, next, screen)
 			}
 		}
 
 		// //draws the grid over the other two elements
-		for j := 0; j < len(g.availableCells); j++ {
-			vector.StrokeRect(screen,
-				(g.availableCells)[j].XPos,
-				(g.availableCells)[j].YPos,
-				float32(SNAKE_SIZE),
-				float32(SNAKE_SIZE),
-				1,
-				color.RGBA{0, 102, 204, 255},
-				false)
-		}
+		// for j := 0; j < len(g.availableCells); j++ {
+		// 	vector.StrokeRect(screen,
+		// 		(g.availableCells)[j].XPos,
+		// 		(g.availableCells)[j].YPos,
+		// 		float32(SNAKE_SIZE),
+		// 		float32(SNAKE_SIZE),
+		// 		1,
+		// 		color.RGBA{0, 102, 204, 255},
+		// 		false)
+		// }
 
 		g.uiDrawer.StatusBar(screen, fmt.Sprintf("SCORE: %d", len(g.snake.Body)), fmt.Sprintf("SPEED: %d", g.currentSpeed+1))
 	}
