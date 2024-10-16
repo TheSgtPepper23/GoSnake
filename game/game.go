@@ -97,7 +97,7 @@ func (g *Game) placeFood() {
 		freeCells[ind] = freeCells[len(freeCells)-1]
 		freeCells = freeCells[:len(freeCells)-1]
 	}
-	g.food = freeCells[rand.IntN(len(freeCells))]
+	g.food = freeCells[rand.IntN(len(freeCells)-1)]
 }
 
 func (g *Game) Update() error {
@@ -198,7 +198,7 @@ func drawSnakeNode(node, prev, next Vec, screen *ebiten.Image) {
 			node.XPos,
 			node.YPos+SNAKE_SIZE,
 			1,
-			color.RGBA{255, 0, 0, 255},
+			color.RGBA{0, 0, 0, 255},
 			false,
 		)
 	}
@@ -211,7 +211,7 @@ func drawSnakeNode(node, prev, next Vec, screen *ebiten.Image) {
 			node.XPos+SNAKE_SIZE,
 			node.YPos+SNAKE_SIZE,
 			1,
-			color.RGBA{0, 0, 255, 255},
+			color.RGBA{0, 0, 0, 255},
 			false,
 		)
 	}
