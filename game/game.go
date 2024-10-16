@@ -241,11 +241,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			if i < len(g.snake.Body)-1 {
 				next = g.snake.Body[i+1]
 			}
-			fmt.Println(prev)
 			drawSnakeNode(g.snake.Body[i], prev, next, screen)
 		}
 
 		g.uiDrawer.StatusBar(screen, fmt.Sprintf("SCORE: %d", len(g.snake.Body)), fmt.Sprintf("SPEED: %d", g.currentSpeed+1))
+		vector.StrokeRect(screen, 0, OFFSET, WIDTH, HEIGHT-OFFSET, 2, YELLOW, true)
 	}
 
 	// they are down here so theyre drawn over the game
