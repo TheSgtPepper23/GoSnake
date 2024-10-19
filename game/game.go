@@ -20,7 +20,7 @@ const (
 	MAXY       = (HEIGHT / SNAKE_SIZE)
 )
 
-var SPEEDS = [...]int{30, 20, 15, 12, 10, 6, 5, 4, 3, 2, 1}
+var SPEEDS = [...]int{15, 12, 10, 6, 5, 4, 3, 2, 1}
 
 type GameState int
 
@@ -89,15 +89,29 @@ func (g *Game) reset() {
 	g.placeFood()
 }
 
+// its as slow as my first approach but at least it doesnt break
 func (g *Game) placeFood() {
-	freeCells := make([]Vec, len(g.availableCells))
-	copy(freeCells, g.availableCells)
-	for _, node := range g.snake.Body {
-		ind := DetermineIndex(node)
-		freeCells[ind] = freeCells[len(freeCells)-1]
-		freeCells = freeCells[:len(freeCells)-1]
+	cellMap := make(map[Vec]bool, len(g.availableCells))
+	for _, cell := range g.availableCells {
+		cellMap[cell] = true
 	}
-	g.food = freeCells[rand.IntN(len(freeCells)-1)]
+
+	for _, node := range g.snake.Body {
+		tempNode := Vec{
+			XPos: node.XPos,
+			YPos: node.YPos,
+		}
+		delete(cellMap, tempNode)
+	}
+
+	freeCells := make([]Vec, len(cellMap))
+	currentI := 0
+	for key := range cellMap {
+		freeCells[currentI] = key
+		currentI++
+	}
+
+	g.food = freeCells[rand.IntN(len(freeCells))]
 }
 
 func (g *Game) Update() error {
@@ -146,15 +160,6 @@ func (g *Game) Update() error {
 	return nil
 }
 
-func drawImage(target *ebiten.Image, toPrint *ebiten.Image, xPos, yPos, angle float64) {
-	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Translate(op.GeoM.Apply(xPos, yPos))
-	op.GeoM.Rotate(angle)
-	target.DrawImage(toPrint, op)
-}
-
-// TODO: arreglar el margen de los strokes, se debe de considerar el ancho
-// de la línea.
 func drawSnakeNode(node, prev, next Vec, screen *ebiten.Image) {
 	vector.DrawFilledRect(
 		screen, node.XPos,
@@ -233,8 +238,12 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		)
 		// Draws the snake body
 		for i := 0; i < len(g.snake.Body); i++ {
-			var prev Vec
-			var next Vec
+
+			//-1 is assigned because its an impossible value to get, if 0 was used, when the head and tail approach the 0,0 cell
+			//Which is possible, the sides where not drawn
+			prev := Vec{YPos: -1, XPos: -1}
+			next := Vec{YPos: -1, XPos: -1}
+
 			if i != 0 {
 				prev = g.snake.Body[i-1]
 			}
